@@ -15,5 +15,4 @@ const constants = {
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS?.split(","),
     FRONTEND_URL: process.env.FRONTEND_URL,
 };
-console.log(constants.REFRESH_TOKEN_EXPIRY)
 export default constants;
