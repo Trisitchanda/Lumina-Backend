@@ -1,6 +1,7 @@
 import express from "express";
 import errorMiddleware from "./middlewares/error.middleware.js";
 import {
+    healthCheckRoutes,
     userRoutes,
 } from "./routes/index.js";
 import cookieParser from "cookie-parser";
@@ -22,7 +23,7 @@ app.use(cookieParser()); // to handle cookies
 app.use(cors(corsOptions));
 
 // routes
-// app.use("/api/test", healthCheckRoutes); // health check routes
+app.use("/api/test", healthCheckRoutes); // health check routes
 app.use("/api/user", userRoutes);
 
 // handling all other incorrect routes
