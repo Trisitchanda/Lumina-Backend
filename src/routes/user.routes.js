@@ -4,6 +4,7 @@ import {
     handleLogin,
     handleLogout,
     handleChangeAvatar,
+    handleGetProfile,
 } from "../controllers/user.controller.js";
 import { isLoggedIn } from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multar.middleware.js";
@@ -17,5 +18,8 @@ userRoutes.route("/logout").get(isLoggedIn, handleLogout);
 userRoutes
     .route("/change-avatar")
     .post(isLoggedIn, upload.single("avatar"), handleChangeAvatar);
+
+// profile routes
+userRoutes.route("/me").get(isLoggedIn, handleGetProfile);
 
 export default userRoutes;

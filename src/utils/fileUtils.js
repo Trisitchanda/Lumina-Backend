@@ -6,21 +6,21 @@ import constants from "../constants.js";
 import { ApiError } from "./index.js";
 import { fileURLToPath } from "url";
 
-// export const deleteLocalFile = async (localFilePath) => {
-//     try {
-//         if (!localFilePath) return;
+export const deleteLocalFile = async (localFilePath) => {
+    try {
+        if (!localFilePath) return;
 
-//         const absolutePath = path.resolve(localFilePath);
+        const absolutePath = path.resolve(localFilePath);
 
-//         if (fs.existsSync(absolutePath)) {
-//             await fs.promises.unlink(absolutePath);
-//             console.log("Deleted local file:", absolutePath);
-//         }
-//     } catch (error) {
-//         console.log("File delete error:", error);
-//         throw new ApiError(500, "Error while deleting local file");
-//     }
-// };
+        if (fs.existsSync(absolutePath)) {
+            await fs.promises.unlink(absolutePath);
+            console.log("Deleted local file:", absolutePath);
+        }
+    } catch (error) {
+        console.log("File delete error:", error);
+        throw new ApiError(500, "Error while deleting local file");
+    }
+};
 
 export const deleteLocalFiles = async () => {
     try {
@@ -107,11 +107,13 @@ export const uploadImageToCloud = async (localFilePath) => {
     if (!localFilePath) return null;
 
     try {
-        console.log("Uploading File: ", localFilePath);
+        console.log("Uploading File:", localFilePath);
+
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "image",
         });
 
+        // moderation check
         if (
             response?.moderation?.length > 0 &&
             response?.moderation[0]?.status === "rejected"
@@ -122,15 +124,15 @@ export const uploadImageToCloud = async (localFilePath) => {
             );
         }
 
-        console.log("Uploaded File: ", localFilePath);
         return {
             public_id: response.public_id,
             secure_url: response.secure_url,
         };
     } catch (error) {
-        console.log("Error while uploading file :: uploadImageToCloud :: ", error);
-        await deleteLocalFiles();
-        throw new ApiError(error.message, 500);
+        throw error;
+    } finally {
+        // ✅ ALWAYS cleanup (success or error)
+        await deleteLocalFile(localFilePath);
     }
 };
 
