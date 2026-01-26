@@ -5,32 +5,37 @@ import constants from "../constants.js";
 
 const userSchema = new mongoose.Schema(
   {
+    /* ===================== IDENTITY ===================== */
+    displayName: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+      default: "",
+    },
+
     username: {
       type: String,
-      required: [true, "Username is required"],
+      required: true,
       unique: true,
       trim: true,
-      minlength: [3, "Username must be at least 3 characters"],
-      maxlength: [20, "Username cannot exceed 20 characters"],
+      minlength: 3,
+      maxlength: 20,
       match: [/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and _"],
     },
 
     email: {
       type: String,
-      required: [true, "Email is required"],
+      required: true,
       unique: true,
       lowercase: true,
       trim: true,
-      match: [
-        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/,
-        "Please provide a valid email address",
-      ],
+      select: false, // 🔐 private
     },
 
     password: {
       type: String,
-      required: [true, "Password is required"],
-      minlength: [8, "Password must be at least 8 characters"],
+      required: true,
+      minlength: 8,
       select: false,
     },
 
@@ -38,6 +43,31 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["user", "creator"],
       default: "user",
+    },
+
+    /* ===================== PROFILE ===================== */
+    bio: {
+      type: String,
+      maxlength: 500,
+      default: "",
+    },
+
+    website: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    twitter: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
+    instagram: {
+      type: String,
+      trim: true,
+      default: "",
     },
 
     avatar: {
@@ -50,28 +80,84 @@ const userSchema = new mongoose.Schema(
       },
     },
 
-    creatorProfile: {
-      bio: {
+    /* ===================== NOTIFICATIONS ===================== */
+    notifications: {
+      emailNewFollower: { type: Boolean, default: false },
+      emailNewSubscriber: { type: Boolean, default: false },
+      emailNewComment: { type: Boolean, default: false },
+      emailNewPurchase: { type: Boolean, default: false },
+      emailWeeklyDigest: { type: Boolean, default: false },
+
+      pushNewFollower: { type: Boolean, default: false },
+      pushNewSubscriber: { type: Boolean, default: false },
+      pushNewComment: { type: Boolean, default: false },
+      pushNewPurchase: { type: Boolean, default: false },
+
+      marketingEmails: { type: Boolean, default: false },
+    },
+
+    /* ===================== PAYOUT ===================== */
+    payout: {
+      payoutMethod: {
         type: String,
-        maxlength: [500, "Bio cannot exceed 500 characters"],
+        enum: ["bank", "paypal", "stripe"],
+        default: "bank",
       },
 
-      subscriptionPrice: {
-        type: Number,
-        min: [0, "Price cannot be negative"],
+      bankName: {
+        type: String,
+        default: "",
       },
 
-      subscribersCount: {
-        type: Number,
-        default: 0,
+      accountNumber: {
+        type: String,
+        select: false, // 🔐 sensitive
+        default: "",
       },
 
-      totalEarnings: {
-        type: Number,
-        default: 0,
+      routingNumber: {
+        type: String,
+        select: false, // 🔐 sensitive
+        default: "",
+      },
+
+      paypalEmail: {
+        type: String,
+        default: "",
+      },
+
+      minimumPayout: {
+        type: String,
+        default: "0",
+      },
+
+      payoutSchedule: {
+        type: String,
+        enum: ["weekly", "biweekly", "monthly"],
+        default: "monthly",
       },
     },
 
+    /* ===================== SECURITY ===================== */
+    security: {
+      twoFactorEnabled: {
+        type: Boolean,
+        default: false,
+      },
+      lastLogin: {
+        type: Date,
+        default: null,
+      },
+    },
+
+    /* ===================== EARNINGS ===================== */
+    earnings: {
+      available: { type: Number, default: 0 },
+      pending: { type: Number, default: 0 },
+      total: { type: Number, default: 0 },
+    },
+
+    /* ===================== AUTH INTERNALS ===================== */
     refreshTokenHash: {
       type: String,
       select: false,

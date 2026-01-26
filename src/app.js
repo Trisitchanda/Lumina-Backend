@@ -7,6 +7,7 @@ import {
 import cookieParser from "cookie-parser";
 import constants from "./constants.js";
 import cors from "cors";
+import profileRoutes from "./routes/profile.routes.js";
 
 const app = express();
 
@@ -24,7 +25,8 @@ app.use(cors(corsOptions));
 
 // routes
 app.use("/api/test", healthCheckRoutes); // health check routes
-app.use("/api/user", userRoutes);
+app.use("/api/user", userRoutes); // user check routes
+app.use("/api/profile", profileRoutes); // profile check routes
 
 // handling all other incorrect routes
 app.all(/./, (req, res) => {

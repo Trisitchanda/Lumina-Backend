@@ -20,6 +20,22 @@ export const handleRegister = async (req, res, next) => {
       throw new ApiError(400, "All fields are required");
     }
 
+    // Email format validation using regex
+    const emailRegex =
+      /^(?=.{1,254}$)(?=.{1,64}@)[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+
+    if (!emailRegex.test(email)) {
+      throw new ApiError(400, "Email Not Valid");
+    }
+
+    // Password validation in controller
+    const passwordRegex =
+      /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])[^\s]{8,64}$/;
+    // check min 8 char, one uppercase, special char and number
+    if (!passwordRegex.test(password)) {
+      throw new ApiError(400, "Password Not Valid");
+    }
+
     const existingUser = await User.findOne({
       $or: [{ email }, { username }],
     });
@@ -53,8 +69,24 @@ export const handleRegister = async (req, res, next) => {
     //   welcomeTemplate({ name: user.username })
     // );
 
-    user.password = undefined;  
+    user.password = undefined;
     user.refreshTokenHash = undefined;
+
+    const safeUser = {
+      _id: user._id,
+      displayName: user.displayName,
+      username: user.username,
+      email: user.email,
+      avatar: {
+        public_id: user.avatar.public_id,
+        secure_url: user.avatar.secure_url
+      },
+      role: user.role,
+      bio: user.bio,
+      website: user.website,
+      twitter: user.twitter,
+      instagram: user.instagram,
+    };
 
 
     res
@@ -71,7 +103,7 @@ export const handleRegister = async (req, res, next) => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
       .status(201)
-      .json(new ApiResponse(201, "Account created successfully", user));
+      .json(new ApiResponse(201, "Account created successfully", safeUser));
   } catch (error) {
     next(error);
   }
@@ -104,15 +136,31 @@ export const handleLogin = async (req, res, next) => {
     user.refreshTokenHash = await bcrypt.hash(refreshToken, 10);
     await user.save();
 
-    user.password = undefined;
-    user.refreshTokenHash = undefined;
+    // user.password = undefined;
+    // user.refreshTokenHash = undefined;
+
+    const safeUser = {
+      _id: user._id,
+      displayName: user.displayName,
+      username: user.username,
+      email: user.email,
+      avatar: {
+        public_id: user.avatar.public_id,
+        secure_url: user.avatar.secure_url
+      },
+      role: user.role,
+      bio: user.bio,
+      website: user.website,
+      twitter: user.twitter,
+      instagram: user.instagram,
+    };
 
     res
       .cookie("accessToken", accessToken, {
         httpOnly: true,
         secure: true,
         sameSite: "None",
-        maxAge: 2 * 24 * 60 * 60 * 1000, // 2 days
+        maxAge: 60 * 60 * 1000, // 1 hr
       })
       .cookie("refreshToken", refreshToken, {
         httpOnly: true,
@@ -121,7 +169,7 @@ export const handleLogin = async (req, res, next) => {
         maxAge: 7 * 24 * 60 * 60 * 1000, //7 days
       })
       .status(200)
-      .json(new ApiResponse(200, "Login successful", user));
+      .json(new ApiResponse(200, "Login successful", safeUser));
   } catch (error) {
     next(error);
   }
