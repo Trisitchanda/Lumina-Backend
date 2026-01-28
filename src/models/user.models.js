@@ -29,7 +29,6 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      select: false, // 🔐 private
     },
 
     password: {
