@@ -58,7 +58,7 @@ const refreshAccessToken = async (req, res, next) => {
         httpOnly: true,
         secure: true,
         sameSite: "None",
-        maxAge: 15 * 60 * 1000, // 15 min
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       })
       .cookie("refreshToken", newRefreshToken, {
         httpOnly: true,
@@ -80,9 +80,9 @@ export const isLoggedIn = async (req, res, next) => {
   try {
     const accessToken = req.cookies?.accessToken;
 
-    if (!accessToken) {
-      throw new ApiError(455, "Not authenticated");
-    }
+    // if (!accessToken) {
+    //   throw new ApiError(455, "Not authenticated");
+    // }
 
     try {
       const decoded = jwt.verify(

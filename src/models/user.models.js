@@ -51,6 +51,12 @@ const userSchema = new mongoose.Schema(
       default: "",
     },
 
+    location: {
+      type: String,
+      maxlength: 50,
+      default: "Earth",
+    },
+
     website: {
       type: String,
       trim: true,
@@ -78,6 +84,67 @@ const userSchema = new mongoose.Schema(
         required: [true, "Avatar is required"],
       },
     },
+
+    category: {
+      type: String,
+      enum: [
+        "Art & Illustration",
+        "Music Production",
+        "Technology",
+        "Fitness & Health",
+        "Photography",
+        "Game Development",
+        "Writing",
+        "Other"
+      ],
+      default: "Other",
+      index: true, // IMPORTANT: Makes filtering by category fast
+    },
+
+    /* ===================== INTERACTIONS & LIBRARY ===================== */
+    // Tracking relationships for quick access
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    likedPosts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+      },
+    ],
+
+    savedPosts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+      },
+    ],
+
+    // Quick lookup for purchased content to unlock it efficiently
+    purchasedPosts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Post",
+      },
+    ],
+
+    purchasedCollections: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Collection",
+      },
+    ],
 
     /* ===================== NOTIFICATIONS ===================== */
     notifications: {
@@ -219,6 +286,5 @@ userSchema.methods.generateRefreshToken = function () {
     }
   );
 };
-
 const User = mongoose.model("User", userSchema);
 export default User;
