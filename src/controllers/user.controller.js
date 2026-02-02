@@ -160,7 +160,7 @@ export const handleLogin = async (req, res, next) => {
         httpOnly: true,
         secure: true,
         sameSite: "None",
-        maxAge: 60 * 60 * 1000, // 1 hr
+        maxAge: 60 * 1000, // 1 hr
       })
       .cookie("refreshToken", refreshToken, {
         httpOnly: true,

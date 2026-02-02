@@ -12,6 +12,7 @@ const sanitizePrivateProfile = (user) => ({
   website: user.website,
   twitter: user.twitter,
   instagram: user.instagram,
+  location: user.location,
   avatar: user.avatar,
   notifications: user.notifications,
   payout: user.payout,
@@ -20,18 +21,83 @@ const sanitizePrivateProfile = (user) => ({
 });
 
 const sanitizePublicProfile = (user) => ({
+  _id: user._id,
   displayName: user.displayName,
   username: user.username,
   bio: user.bio,
   website: user.website,
   twitter: user.twitter,
   instagram: user.instagram,
+  location: user.location,
   avatar: user.avatar,
+  category: user.category, 
+  followers: user.followers,
+  role: user.role,
   earnings: {
     total: user.earnings?.total ?? 0,
   },
 });
 
+
+export const getExploreCreators = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Filters from Frontend
+    const { search, category, sort } = req.query;
+
+    // 1. Base Query: Only active Creators
+    const query = { 
+      role: "creator", 
+      isActive: true 
+    };
+
+    // 2. Category Filter
+    if (category && category !== "All") {
+      query.category = category;
+    }
+
+    // 3. Search Filter (Regex for Name or Bio)
+    if (search) {
+      query.$or = [
+        { displayName: { $regex: search, $options: "i" } },
+        { username: { $regex: search, $options: "i" } },
+        { bio: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // 4. Sorting Logic
+    let sortOptions = { createdAt: -1 }; // Default: Newest
+    if (sort === "name") {
+      sortOptions = { displayName: 1 }; // A-Z
+    }
+    // Note: Sorting by "popular" (followers count) requires Aggregation pipeline. 
+    // For now, we fetch the data and let Frontend sort, or use default sorting.
+
+    // 5. Execute Query
+    const creators = await User.find(query)
+      .select("displayName username avatar bio coverImage category followers") // Select specific fields
+      .sort(sortOptions)
+      .skip(skip)
+      .limit(limit);
+
+    // 6. Get Total Count (for pagination UI)
+    const total = await User.countDocuments(query);
+
+    return res.status(200).json(
+      new ApiResponse(200, "Creators fetched", {
+        creators,
+        total,
+        page,
+        hasMore: total > skip + creators.length,
+      })
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 
 /* =========================
    GET MY PROFILE
@@ -103,6 +169,9 @@ export const updateProfile = async (req, res, next) => {
       website: "string",
       twitter: "string",
       instagram: "string",
+      location: "string",
+      category: "string",
+      role: "string"
     };
     const updates = {};
 
