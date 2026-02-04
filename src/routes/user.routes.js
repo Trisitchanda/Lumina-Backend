@@ -3,7 +3,6 @@ import {
     handleRegister,
     handleLogin,
     handleLogout,
-    handleChangeAvatar,
     handleGetProfile,
 } from "../controllers/user.controller.js";
 import { isLoggedIn } from "../middlewares/auth.middleware.js";
@@ -15,10 +14,6 @@ const userRoutes = Router();
 userRoutes.route("/register").post( upload.single("avatar"),handleRegister);
 userRoutes.route("/login").post(handleLogin);
 userRoutes.route("/logout").get(isLoggedIn, handleLogout);
-userRoutes
-    .route("/change-avatar")
-    .post(isLoggedIn, upload.single("avatar"), handleChangeAvatar);
-
 // profile routes
 userRoutes.route("/me").get(isLoggedIn, handleGetProfile);
 

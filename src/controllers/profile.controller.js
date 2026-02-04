@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import User from "../models/user.models.js";
 import { ApiError, ApiResponse } from "../utils/index.js";
 import { uploadImageToCloud, deleteCloudFile } from "../utils/index.js";
@@ -30,8 +31,10 @@ const sanitizePublicProfile = (user) => ({
   instagram: user.instagram,
   location: user.location,
   avatar: user.avatar,
-  category: user.category, 
+  category: user.category,
   followers: user.followers,
+  following: user.following,
+  createdAt: user.createdAt,
   role: user.role,
   earnings: {
     total: user.earnings?.total ?? 0,
@@ -48,18 +51,18 @@ export const getExploreCreators = async (req, res, next) => {
     // Filters from Frontend
     const { search, category, sort } = req.query;
 
-    // 1. Base Query: Only active Creators
-    const query = { 
-      role: "creator", 
-      isActive: true 
+    // Only active Creators
+    const query = {
+      role: "creator",
+      isActive: true
     };
 
-    // 2. Category Filter
+    // Category Filter
     if (category && category !== "All") {
       query.category = category;
     }
 
-    // 3. Search Filter (Regex for Name or Bio)
+    // Search Filter
     if (search) {
       query.$or = [
         { displayName: { $regex: search, $options: "i" } },
@@ -68,7 +71,7 @@ export const getExploreCreators = async (req, res, next) => {
       ];
     }
 
-    // 4. Sorting Logic
+    // Sorting 
     let sortOptions = { createdAt: -1 }; // Default: Newest
     if (sort === "name") {
       sortOptions = { displayName: 1 }; // A-Z
@@ -76,14 +79,14 @@ export const getExploreCreators = async (req, res, next) => {
     // Note: Sorting by "popular" (followers count) requires Aggregation pipeline. 
     // For now, we fetch the data and let Frontend sort, or use default sorting.
 
-    // 5. Execute Query
+    // Execute Query
     const creators = await User.find(query)
-      .select("displayName username avatar bio coverImage category followers") // Select specific fields
+      .select("displayName username avatar bio coverImage category followers")
       .sort(sortOptions)
       .skip(skip)
       .limit(limit);
 
-    // 6. Get Total Count (for pagination UI)
+    // Get Total Count (for pagination UI)
     const total = await User.countDocuments(query);
 
     return res.status(200).json(
@@ -133,21 +136,32 @@ export const getMyProfile = async (req, res, next) => {
 ========================= */
 export const getPublicProfile = async (req, res, next) => {
   try {
-    const { username } = req.params;
+    const identifier = req.params.username || req.params.id;
 
-    if (!username || typeof username !== "string") {
-      throw new ApiError(400, "Invalid username");
+    if (!identifier) {
+      throw new ApiError(400, "Invalid profile identifier");
     }
 
-    const user = await User.findOne({ username });
+    let user;
+
+    // Check if it's a valid MongoDB ID
+    if (mongoose.Types.ObjectId.isValid(identifier)) {
+      user = await User.findById(identifier);
+    }
+
+    // If not found by ID (or it wasn't a valid ID), search by Username
+    if (!user) {
+      user = await User.findOne({ username: identifier });
+    }
+
+    // Final Validation
     if (!user) {
       throw new ApiError(404, "User not found");
     }
-
     return res.status(200).json(
       new ApiResponse(
         200,
-        "Public profile fetched",
+        "Public profile fetched successfully",
         sanitizePublicProfile(user)
       )
     );

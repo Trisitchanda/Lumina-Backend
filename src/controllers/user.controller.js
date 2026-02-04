@@ -13,6 +13,7 @@ import { uploadImageToCloud, deleteCloudFile } from "../utils/index.js";
 ========================= */
 export const handleRegister = async (req, res, next) => {
   try {
+    console.log(req.body)
     const { username, email, password, role } = req.body;
     const avatarFile = req.file;
 
@@ -28,7 +29,6 @@ export const handleRegister = async (req, res, next) => {
       throw new ApiError(400, "Email Not Valid");
     }
 
-    // Password validation in controller
     const passwordRegex =
       /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[^A-Za-z0-9\s])[^\s]{8,64}$/;
     // check min 8 char, one uppercase, special char and number
@@ -201,49 +201,6 @@ export const handleGetProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
     res.status(200).json(new ApiResponse(200, "Profile fetched", user));
-  } catch (error) {
-    next(error);
-  }
-};
-
-/* =========================
-   UPDATE PROFILE
-========================= */
-export const handleUpdateProfile = async (req, res, next) => {
-  try {
-    const updates = req.body;
-
-    const user = await User.findByIdAndUpdate(
-      req.user._id,
-      { $set: updates },
-      { new: true, runValidators: true }
-    );
-
-    res.status(200).json(new ApiResponse(200, "Profile updated", user));
-  } catch (error) {
-    next(error);
-  }
-};
-
-/* =========================
-   CHANGE AVATAR
-========================= */
-export const handleChangeAvatar = async (req, res, next) => {
-  try {
-    const avatarFile = req.file;
-    if (!avatarFile) throw new ApiError(400, "Avatar is required");
-
-    const user = await User.findById(req.user._id);
-
-    if (user.avatar?.public_id) {
-      await deleteCloudFile(user.avatar.public_id);
-    }
-
-    const avatar = await uploadImageToCloud(avatarFile.path);
-    user.avatar = avatar;
-    await user.save();
-
-    res.status(200).json(new ApiResponse(200, "Avatar updated", user.avatar));
   } catch (error) {
     next(error);
   }

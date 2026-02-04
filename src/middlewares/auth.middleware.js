@@ -4,9 +4,9 @@ import User from "../models/user.models.js";
 import { ApiError } from "../utils/index.js";
 import constants from "../constants.js";
 
-/**
- * 🔁 Refresh Access Token
- */
+
+//  🔁 Refresh Access Token
+
 const refreshAccessToken = async (req, res, next) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
@@ -73,9 +73,9 @@ const refreshAccessToken = async (req, res, next) => {
   }
 };
 
-/**
- * 🔐 Check if user is logged in
- */
+
+//  🔐 Check if user is logged in
+
 export const isLoggedIn = async (req, res, next) => {
   try {
     const accessToken = req.cookies?.accessToken;
@@ -106,9 +106,9 @@ export const isLoggedIn = async (req, res, next) => {
   }
 };
 
-/**
- * 🛂 Role-based authorization
- */
+
+// 🛂 Role-based authorization
+
 export const isAuthorized =
   (...roles) =>
   (req, res, next) => {
