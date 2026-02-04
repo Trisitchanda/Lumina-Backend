@@ -4,13 +4,14 @@ import upload from "../middlewares/multar.middleware.js";
 
 import {
   getMyProfile,
-  getPublicProfile,
   updateProfile,
   updateNotifications,
   updatePayout,
   updateSecurity,
   requestPayout,
   updateAvatar,
+  getExploreCreators,
+  getPublicProfile
 } from "../controllers/profile.controller.js";
 
 const profileRoutes = Router();
@@ -39,7 +40,7 @@ profileRoutes.put("/security", isLoggedIn, updateSecurity);
 
 // updateAvatar
 profileRoutes.put(
-  "/avatar",
+  "/change-avatar",
   isLoggedIn,
   upload.single("avatar"),
   updateAvatar
@@ -49,7 +50,10 @@ profileRoutes.put(
    PUBLIC
 ========================= */
 
+// Explore Creators
+profileRoutes.get("/explore", getExploreCreators);
+
 // view other user's profile
-profileRoutes.get("/:username", getPublicProfile);
+profileRoutes.get("/:id", getPublicProfile);
 
 export default profileRoutes;

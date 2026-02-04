@@ -15,19 +15,18 @@ export const getFeed = async (req, res, next) => {
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        // 1. Fetch Posts (Sorted by newest)
+        // Fetch Posts (Sorted by newest)
         const posts = await Post.find({ isDraft: false })
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
             .populate("creatorId", "displayName username avatar role");
 
-        // 2. Check if more posts exist
+        // Check if more posts exist
         const totalPosts = await Post.countDocuments({ isDraft: false });
         const hasMore = totalPosts > skip + posts.length;
 
-        // 3. Get User Interactions (Optimized)
-        // We send back the IDs of things the user has liked/saved so the UI can show the correct icon state (filled vs outlined)
+        // 3. Get User Interactions 
         const user = await User.findById(req.user._id).select("likedPosts savedPosts following");
 
         return res.status(200).json(
@@ -53,7 +52,7 @@ export const createPost = async (req, res, next) => {
     try {
         const { title, content, type, isPaid, price, isMembersOnly, allowedTiers } = req.body;
 
-        // Validation: Paid content logic
+        // Validation
         const priceNum = Number(price);
         const isPaidBool = isPaid === "true" || isPaid === true;
         if (isPaidBool && (isNaN(priceNum) || priceNum < 0)) {
@@ -75,7 +74,7 @@ export const createPost = async (req, res, next) => {
             isPaid: isPaidBool,
             price: priceNum || 0,
             isMembersOnly: isMembersOnly === "true" || isMembersOnly === true,
-            allowedTiers: allowedTiers ? JSON.parse(allowedTiers) : [], // Handle FormData array parsing
+            allowedTiers: allowedTiers ? JSON.parse(allowedTiers) : [], 
             coverImage,
         });
 
@@ -147,7 +146,7 @@ export const getCreatorPosts = async (req, res, next) => {
 
         const posts = await Post.find({
             creatorId: creatorId,
-            isDraft: false // ✅ Only show published posts
+            isDraft: false 
         })
             .sort({ createdAt: -1 })
             .populate("creatorId", "displayName username avatar");
@@ -186,7 +185,7 @@ export const createCollection = async (req, res, next) => {
             creatorId: req.user._id,
             title,
             description,
-            posts: postIds || [], // Array of Post IDs
+            posts: postIds || [],
             isPaid: isPaid === "true" || isPaid === true,
             price: Number(price) || 0,
         });
@@ -234,7 +233,7 @@ export const deleteCollection = async (req, res, next) => {
 export const getTiers = async (req, res, next) => {
     try {
         const { creatorId } = req.params;
-        // Default to requesting user if not specified (for editing mode)
+        // Default to requesting user if not specified
         const targetId = creatorId || req.user._id;
 
         const query = { creatorId: targetId };
@@ -417,9 +416,6 @@ export const subscribeToCreator = async (req, res, next) => {
         });
 
         // Add to User's purchased interactions
-        // In a real app, you'd likely depend on the Subscription model query, 
-        // but for fast frontend logic, we can push to User model too if needed.
-
         return res.status(201).json(new ApiResponse(201, "Subscribed successfully", subscription));
     } catch (error) {
         next(error);
@@ -428,7 +424,7 @@ export const subscribeToCreator = async (req, res, next) => {
 
 export const unsubscribeFromCreator = async (req, res, next) => {
     try {
-        const { id: creatorId } = req.params; // Or req.body, depends on your route definition. Let's assume params for REST.
+        const { id: creatorId } = req.params;
 
         const subscription = await Subscription.findOneAndUpdate(
             { subscriberId: req.user._id, creatorId, status: "active" },
