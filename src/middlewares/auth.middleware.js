@@ -27,7 +27,7 @@ const refreshAccessToken = async (req, res, next) => {
     }
 
     const user = await User.findById(decoded._id).select("+refreshTokenHash");
-    if (!user) {
+    if (!user || !user.refreshTokenHash) {
       throw new ApiError(455, "User not found");
     }
 

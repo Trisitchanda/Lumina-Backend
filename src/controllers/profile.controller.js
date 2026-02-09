@@ -15,6 +15,8 @@ const sanitizePrivateProfile = (user) => ({
   instagram: user.instagram,
   location: user.location,
   avatar: user.avatar,
+  followers: user.followers,
+  following: user.following,
   notifications: user.notifications,
   payout: user.payout,
   security: user.security,
@@ -347,10 +349,7 @@ export const updateAvatar = async (req, res, next) => {
     if (!req.file?.path) {
       throw new ApiError(400, "Avatar file is required");
     }
-
-    // const user = await User.findById(req.user._id);
-    // if (!user) throw new ApiError(404, "User not found");
-
+    
     const uploaded = await uploadImageToCloud(req.file.path);
     if (!uploaded?.secure_url || !uploaded?.public_id) {
       throw new ApiError(400, "Avatar upload failed");

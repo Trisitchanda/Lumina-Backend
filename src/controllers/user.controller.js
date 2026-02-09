@@ -69,8 +69,8 @@ export const handleRegister = async (req, res, next) => {
     //   welcomeTemplate({ name: user.username })
     // );
 
-    user.password = undefined;
-    user.refreshTokenHash = undefined;
+    // user.password = undefined;
+    // user.refreshTokenHash = undefined;
 
     const safeUser = {
       _id: user._id,
