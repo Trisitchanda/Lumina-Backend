@@ -49,41 +49,77 @@ export const getFeed = async (req, res, next) => {
 /* ========================================================================== */
 
 export const createPost = async (req, res, next) => {
-    try {
-        const { title, content, type, isPaid, price, isMembersOnly, allowedTiers } = req.body;
+  try {
+    const { 
+      title, 
+      description, 
+      type, 
+      isPaid, 
+      price, 
+      isDraft, 
+      isMembersOnly, 
+      allowedTiers,
+      pollOptions 
+    } = req.body;
 
-        // Validation
-        const priceNum = Number(price);
-        const isPaidBool = isPaid === "true" || isPaid === true;
-        if (isPaidBool && (isNaN(priceNum) || priceNum < 0)) {
-            throw new ApiError(400, "Invalid price for paid content");
+    let coverImageData = null;
+    let mediaArray = [];
+
+    // 2. Handle Image Upload (If present)
+    if (req.files && req.files.image) {
+      const imgFile = req.files.image[0];
+      const uploadedImg = await uploadImageToCloud(imgFile.path);
+      
+      if (uploadedImg) {
+        coverImageData = {
+          public_id: uploadedImg.public_id,
+          secure_url: uploadedImg.secure_url,
+        };
+        if (type === 'image') {
+          mediaArray.push({
+            public_id: uploadedImg.public_id,
+            secure_url: uploadedImg.secure_url,
+            type: 'image'
+          });
         }
-
-        let coverImage = null;
-        if (req.file) {
-            const uploaded = await uploadImageToCloud(req.file.path);
-            if (!uploaded) throw new ApiError(500, "Image upload failed");
-            coverImage = { public_id: uploaded.public_id, secure_url: uploaded.secure_url };
-        }
-
-        const post = await Post.create({
-            creatorId: req.user._id,
-            title: title?.trim(),
-            content: content?.trim(),
-            type: type || "text",
-            isPaid: isPaidBool,
-            price: priceNum || 0,
-            isMembersOnly: isMembersOnly === "true" || isMembersOnly === true,
-            allowedTiers: allowedTiers ? JSON.parse(allowedTiers) : [], 
-            coverImage,
-        });
-
-        await post.populate("creatorId", "displayName username avatar");
-
-        return res.status(201).json(new ApiResponse(201, "Post created", post));
-    } catch (error) {
-        next(error);
+      }
     }
+
+    //Handle Audio Upload (If present)
+    if (req.files && req.files.audio) {
+      const audioFile = req.files.audio[0];
+      const uploadedAudio = await uploadImageToCloud(audioFile.path); // Ensure your uploader handles audio!
+      
+      if (uploadedAudio) {
+        mediaArray.push({
+          public_id: uploadedAudio.public_id,
+          secure_url: uploadedAudio.secure_url,
+          type: 'audio'
+        });
+      }
+    }
+
+    // 4. Create Post
+    const post = await Post.create({
+      creatorId: req.user._id,
+      title: title?.trim(),
+      content: description?.trim(),
+      type: type || "text",
+      isPaid: isPaid === "true" || isPaid === true,
+      price: Number(price) || 0,
+      isDraft: isDraft === "true" || isDraft === true,
+      isMembersOnly: isMembersOnly === "true" || isMembersOnly === true,
+      pollOptions: pollOptions ? JSON.parse(pollOptions) : undefined,
+      coverImage: coverImageData,
+      media: mediaArray,
+      
+      allowedTiers: allowedTiers ? JSON.parse(allowedTiers) : [],
+    });
+
+    return res.status(201).json(new ApiResponse(201, "Post created successfully", post));
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const updatePost = async (req, res, next) => {

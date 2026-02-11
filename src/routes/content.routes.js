@@ -43,7 +43,10 @@ contentRoutes.get("/feed", isLoggedIn, getFeed);
 contentRoutes.post(
   "/posts", 
   isLoggedIn, 
-  upload.single("coverImage"), 
+  upload.fields([
+    { name: "image", maxCount: 1 }, 
+    { name: "audio", maxCount: 1 }, 
+  ]),
   createPost
 );
 
