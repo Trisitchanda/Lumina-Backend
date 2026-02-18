@@ -22,8 +22,15 @@ import {
   purchaseItem,
   getFollowingList,
   getMyPosts,
-  getCreatorPosts
+  getCreatorPosts,
+  toggleSave,
+  getPostById,
+  getDashboardData,
+  getCollectionById,
+  removePostFromCollection,
+  movePostBetweenCollections
 } from "../controllers/content.controller.js";
+import { addComment, deleteComment, getPostComments } from "../controllers/comment.controller.js";
 
 const contentRoutes = Router();
 
@@ -65,7 +72,12 @@ contentRoutes.delete("/posts/:id", isLoggedIn, deletePost);
 contentRoutes.get("/posts/me", isLoggedIn, getMyPosts);
 
 //fetch creator post
-contentRoutes.get("/posts/:creatorId", isLoggedIn, getCreatorPosts);
+contentRoutes.get("/posts/creator/:creatorId", isLoggedIn, getCreatorPosts);
+
+//fetch post by id 
+contentRoutes.get("/posts/:id", isLoggedIn, getPostById);
+
+contentRoutes.get("/dashboard/me", isLoggedIn, getDashboardData);
 
 
 /* ========================================================================== */
@@ -91,6 +103,11 @@ contentRoutes.put("/collections/:id", isLoggedIn, updateCollection);
 
 // Delete a collection
 contentRoutes.delete("/collections/:id", isLoggedIn, deleteCollection);
+
+
+contentRoutes.get("/creator/collections/:id", getCollectionById); // Public/Viewer
+contentRoutes.delete("/collections/:collectionId/posts/:postId", isLoggedIn, removePostFromCollection);
+contentRoutes.put("/collections/move-post", isLoggedIn, movePostBetweenCollections);
 
 
 /* ========================================================================== */
@@ -123,6 +140,9 @@ contentRoutes.post("/posts/:id/like", isLoggedIn, toggleLike);
 // Toggle Follow on a User
 contentRoutes.post("/users/:id/follow", isLoggedIn, toggleFollow);
 
+// Toggle save on a Post
+contentRoutes.post("/posts/:id/save", isLoggedIn, toggleSave);
+
 // Get following list
 contentRoutes.get("/following", isLoggedIn, getFollowingList);
 
@@ -138,5 +158,18 @@ contentRoutes.post("/subscribe", isLoggedIn, subscribeToCreator);
 
 // Unsubscribe from a Creator
 contentRoutes.post("/unsubscribe", isLoggedIn, unsubscribeFromCreator);
+
+/* ========================================================================== */
+/* COMMENTS                                                                   */
+/* ========================================================================== */
+
+// Get all comments for a specific post
+contentRoutes.get("/posts/:postId/comments", isLoggedIn, getPostComments);
+
+// Add a comment to a post
+contentRoutes.post("/posts/:postId/comments", isLoggedIn, addComment);
+
+// Delete a specific comment (using comment ID)
+contentRoutes.delete("/comments/:commentId", isLoggedIn, deleteComment);
 
 export default contentRoutes;

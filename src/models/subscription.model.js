@@ -21,16 +21,21 @@ const subscriptionSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "cancelled", "expired"],
+      enum: ["active", "past_due", "cancelled", "expired"],
       default: "active",
+      index: true // "Find all active subs"
     },
-    startDate: { type: Date, default: Date.now },
-    nextBillingDate: { type: Date },
-    paymentSubscriptionId: { type: String }, 
+    currentPeriodStart: { type: Date, default: Date.now },
+    currentPeriodEnd: { type: Date, required: true }, // The "Access Valid Until" date
+    cancelAtPeriodEnd: { type: Boolean, default: false }, // True if user cancelled but paid time remains
+    
+    paymentSubscriptionId: { type: String }, // Stripe/Razorpay Subscription ID
+    paymentProvider: { type: String, enum: ["stripe", "razorpay"], default: "stripe" }
   },
   { timestamps: true }
 );
-
-subscriptionSchema.index({ subscriberId: 1, creatorId: 1 }, { unique: true });
+ 
+// COMPOUND INDEX:: "Does User X have an active sub to Creator Y?"
+subscriptionSchema.index({ subscriberId: 1, creatorId: 1, status: 1 });
 
 export const Subscription = mongoose.model("Subscription", subscriptionSchema);
