@@ -99,7 +99,7 @@ contentRoutes.post(
 );
 
 // Update a collection
-contentRoutes.put("/collections/:id", isLoggedIn, updateCollection);
+contentRoutes.put("/collections/:id", isLoggedIn,upload.single("coverImage"), updateCollection);
 
 // Delete a collection
 contentRoutes.delete("/collections/:id", isLoggedIn, deleteCollection);

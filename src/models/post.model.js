@@ -58,6 +58,11 @@ const postSchema = new mongoose.Schema(
       default: 0,
       min: 0 // No negative prices
     },
+    collectionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Collection",
+      default: null,
+    },
     isMembersOnly: {
       type: Boolean,
       default: false,

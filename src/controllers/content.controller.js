@@ -1,6 +1,7 @@
 import { Post } from "../models/post.model.js";
 import { Like } from "../models/like.model.js";
 import { SavedPost } from "../models/savepost.model.js";
+import { v2 as cloudinary } from 'cloudinary';
 import { Collection } from "../models/collection.model.js";
 import { Tier } from "../models/tier.model.js";
 import { Subscription } from "../models/subscription.model.js";
@@ -166,7 +167,8 @@ export const createPost = async (req, res, next) => {
             isDraft,
             isMembersOnly,
             allowedTiers,
-            pollOptions
+            pollOptions,
+            collectionId
         } = req.body;
 
         let coverImageData = null;
@@ -233,12 +235,17 @@ export const createPost = async (req, res, next) => {
             isPaid: isPaid === "true" || isPaid === true,
             price: Number(price) || 0,
             isDraft: isDraft === "true" || isDraft === true,
+            collectionId: collectionId || null,
             isMembersOnly: isMembersOnly === "true" || isMembersOnly === true,
             pollOptions: parsedPollOptions,
             coverImage: coverImageData,
             media: mediaArray,
             allowedTiers: parsedAllowedTiers,
         });
+
+        if(collectionId){
+            await Collection.findByIdAndUpdate(collectionId, { $push: { posts: post._id } });
+        }
 
         return res.status(201).json(new ApiResponse(201, "Post created successfully", post));
     } catch (error) {
@@ -249,20 +256,116 @@ export const createPost = async (req, res, next) => {
 export const updatePost = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const updates = req.body;
+        const {
+            title,
+            description,
+            type,
+            isPaid,
+            price,
+            isDraft,
+            isMembersOnly,
+            allowedTiers,
+            pollOptions,
+            collectionId 
+        } = req.body;
 
+        // 1. Verify ownership and existence
         const post = await Post.findOne({ _id: id, creatorId: req.user._id });
         if (!post) throw new ApiError(404, "Post not found or unauthorized");
 
-        if (req.file) {
-            const uploaded = await uploadImageToCloud(req.file.path);
-            updates.coverImage = { public_id: uploaded.public_id, secure_url: uploaded.secure_url };
+        // 2. Build a safe updates object
+        const updates = {};
+        if (title !== undefined) updates.title = title.trim();
+        if (description !== undefined) updates.content = description.trim();
+        if (type !== undefined) updates.type = type;
+
+        // Safely parse FormData strings into Booleans/Numbers
+        if (isPaid !== undefined) updates.isPaid = isPaid === "true" || isPaid === true;
+        if (price !== undefined) updates.price = Number(price) || 0;
+        if (isDraft !== undefined) updates.isDraft = isDraft === "true" || isDraft === true;
+        if (isMembersOnly !== undefined) updates.isMembersOnly = isMembersOnly === "true" || isMembersOnly === true;
+
+        // 3. Handle Collection Relationship Syncing
+        const oldCollectionId = post.collectionId?.toString() || null;
+        const newCollectionId = collectionId || null;
+
+        if (oldCollectionId !== newCollectionId) {
+            // Remove from the old collection if it was attached to one
+            if (oldCollectionId) {
+                await Collection.findByIdAndUpdate(oldCollectionId, { $pull: { posts: post._id } });
+            }
+            // Add to the new collection if one was selected
+            if (newCollectionId) {
+                await Collection.findByIdAndUpdate(newCollectionId, { $push: { posts: post._id } });
+            }
+            updates.collectionId = newCollectionId;
         }
 
-        const updatedPost = await Post.findByIdAndUpdate(id, updates, { new: true })
-            .populate("creatorId", "displayName username avatar");
+        // 4. Handle File Uploads (Replacing existing media)
+        if (req.files) {
+            // New Image
+            if (req.files.image) {
+                const imgFile = req.files.image[0];
+                const uploadedImg = await uploadImageToCloud(imgFile.path);
+                if (uploadedImg) {
+                    updates.coverImage = {
+                        public_id: uploadedImg.public_id,
+                        secure_url: uploadedImg.secure_url,
+                    };
+                    if (type === 'image' || (!type && post.type === 'image')) {
+                        updates.media = [{
+                            public_id: uploadedImg.public_id,
+                            secure_url: uploadedImg.secure_url,
+                            type: 'image'
+                        }];
+                    }
+                }
+            }
+            // New Audio
+            if (req.files.audio) {
+                const audioFile = req.files.audio[0];
+                const uploadedAudio = await uploadImageToCloud(audioFile.path);
+                if (uploadedAudio) {
+                    updates.media = [{
+                        public_id: uploadedAudio.public_id,
+                        secure_url: uploadedAudio.secure_url,
+                        type: 'audio'
+                    }];
+                }
+            }
+        }
 
-        return res.status(200).json(new ApiResponse(200, "Post updated", updatedPost));
+        // 5. Parse JSON Arrays safely
+        if (pollOptions) {
+            try {
+                const parsedPolls = JSON.parse(pollOptions);
+                updates.pollOptions = parsedPolls.map(opt => {
+                    // Handles both simple strings and objects to preserve existing votes
+                    return typeof opt === 'string' 
+                        ? { text: opt, votes: 0 } 
+                        : { text: opt.text, votes: opt.votes || 0 };
+                });
+            } catch (e) {
+                console.error("Poll parse error", e);
+            }
+        }
+
+        if (allowedTiers) {
+            try {
+                updates.allowedTiers = JSON.parse(allowedTiers);
+            } catch (e) {
+                console.error("Tiers parse error", e);
+            }
+        }
+
+        // 6. Apply the updates
+        const updatedPost = await Post.findByIdAndUpdate(
+            id, 
+            { $set: updates }, 
+            { new: true }
+        ).populate("creatorId", "displayName username avatar");
+
+        return res.status(200).json(new ApiResponse(200, "Post updated successfully", updatedPost));
     } catch (error) {
         next(error);
     }
@@ -315,18 +418,38 @@ export const getCreatorPosts = async (req, res, next) => {
         // 3. Inject Access Status
         processedPosts = await injectAccessStatus(processedPosts, userId);
 
-        // 4. Sanitize Content based on Access
+        // 4. Sanitize Content based on Access (With Cloudinary Signed Blurring)
         const securedPosts = processedPosts.map(post => {
             if (!post.hasAccess) {
-                // If Locked: Remove media and sensitive content
+                
+                let secureBlurredImage = null;
+                
+                // If it has a cover image, generate a cryptographic, server-blurred URL
+                if (post.coverImage && post.coverImage.public_id) {
+                    const blurredUrl = cloudinary.url(post.coverImage.public_id, {
+                        secure: true,
+                        effect: "blur:2000",
+                        quality: 10,
+                        sign_url: true // Cryptographically signs the request
+                    });
+                    
+                    secureBlurredImage = {
+                        public_id: post.coverImage.public_id,
+                        secure_url: blurredUrl
+                    };
+                } else {
+                    secureBlurredImage = post.coverImage; // Fallback for legacy DB entries
+                }
+
                 return {
                     ...post,
-                    coverImage: post.type === "image" ? null : post.coverImage, // Hide main image if it's the content
-                    media: [], 
-                    content: post.content ? post.content.substring(0, 100) + "..." : "", // Truncate text
+                    coverImage: secureBlurredImage, // Pass the safe, blurry image to the feed
+                    media: [], // Strip heavy media arrays
+                    content: post.content ? post.content.substring(0, 100) + "..." : "", // Teaser text
                     isLocked: true
                 };
             }
+            // If they have access, return the untouched post
             return post;
         });
 
@@ -353,8 +476,28 @@ export const getPostById = async (req, res, next) => {
         const [postWithStatus] = await injectInteractionStatus([rawPost], userId);
         const [postWithAccess] = await injectAccessStatus([postWithStatus], userId);
 
-        // If Access Denied, return restricted payload
+        // ==========================================
+        // ACCESS DENIED: Generate Secure Blurred URL
+        // ==========================================
         if (!postWithAccess.hasAccess) {
+            
+            let secureBlurredImage = null;
+            
+            // If the post has a cover image, apply Cloudinary server-side blur
+            if (postWithAccess.coverImage && postWithAccess.coverImage.public_id) {
+                const blurredUrl = cloudinary.url(postWithAccess.coverImage.public_id, {
+                    secure: true,
+                    effect: "blur:2000",
+                    quality: 10,
+                    sign_url: true // <--- THIS IS THE MAGIC KEY. It adds the cryptographic signature so Cloudinary accepts it!
+                });
+                
+                secureBlurredImage = {
+                    public_id: postWithAccess.coverImage.public_id,
+                    secure_url: blurredUrl
+                };
+            }
+
             const safePreview = {
                 _id: postWithAccess._id,
                 title: postWithAccess.title,
@@ -369,8 +512,9 @@ export const getPostById = async (req, res, next) => {
                 isLiked: postWithAccess.isLiked,
                 isSaved: postWithAccess.isSaved,
                 allowedTiers: postWithAccess.allowedTiers,
-                // Hide content if it's an image post
-                coverImage: postWithAccess.type === "image" ? null : postWithAccess.coverImage,
+                
+                // --- THE SECURE PAYLOAD ---
+                coverImage: secureBlurredImage, 
                 content: postWithAccess.content ? postWithAccess.content.substring(0, 50) + "..." : "",
                 media: [],
                 pollOptions: [],
@@ -514,13 +658,78 @@ export const createCollection = async (req, res, next) => {
 export const updateCollection = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const collection = await Collection.findOneAndUpdate(
-            { _id: id, creatorId: req.user._id },
-            req.body,
+        const { 
+            title, 
+            description, 
+            isPaid, 
+            price, 
+            postIds, 
+            removeCoverImage 
+        } = req.body;
+
+        // 1. Verify existence and ownership
+        const collection = await Collection.findOne({ _id: id, creatorId: req.user._id });
+        if (!collection) throw new ApiError(404, "Collection not found or unauthorized");
+
+        // 2. Build the updates object safely
+        const updates = {};
+        if (title !== undefined) updates.title = title.trim();
+        if (description !== undefined) updates.description = description.trim();
+        
+        // Safely parse FormData strings
+        if (isPaid !== undefined) updates.isPaid = isPaid === "true" || isPaid === true;
+        if (price !== undefined) updates.price = Number(price) || 0;
+
+        // Parse the JSON array of post IDs
+        if (postIds) {
+            try {
+                updates.posts = JSON.parse(postIds);
+            } catch (e) {
+                console.error("Failed to parse postIds", e);
+            }
+        }
+
+        // 3. Handle Cover Image Uploads / Deletion
+        // Note: Adjust the req.file check based on how your multer is configured 
+        // (e.g., upload.single('coverImage') vs upload.fields(...))
+        const imageFile = req.file || (req.files && req.files.coverImage ? req.files.coverImage[0] : null);
+        
+        if (imageFile) {
+            const uploadedImg = await uploadImageToCloud(imageFile.path);
+            if (uploadedImg) {
+                updates.coverImage = {
+                    public_id: uploadedImg.public_id,
+                    secure_url: uploadedImg.secure_url,
+                };
+            }
+        } else if (removeCoverImage === "true") {
+            // If the user clicked the 'X' to clear the image on the frontend
+            updates.coverImage = null; 
+        }
+
+        // 4. Execute the update on the Collection document
+        const updatedCollection = await Collection.findByIdAndUpdate(
+            id,
+            { $set: updates },
             { new: true }
         );
-        if (!collection) throw new ApiError(404, "Collection not found");
-        return res.status(200).json(new ApiResponse(200, "Collection updated", collection));
+
+        // 5. Bi-Directional Sync: Keep the Post documents up to date!
+        if (updates.posts) {
+            // A. Remove this collection's ID from any post that was UNSELECTED
+            await Post.updateMany(
+                { collectionId: id, _id: { $nin: updates.posts } },
+                { $set: { collectionId: null } }
+            );
+
+            // B. Add this collection's ID to all CURRENTLY SELECTED posts
+            await Post.updateMany(
+                { _id: { $in: updates.posts } },
+                { $set: { collectionId: id } }
+            );
+        }
+
+        return res.status(200).json(new ApiResponse(200, "Collection updated successfully", updatedCollection));
     } catch (error) {
         next(error);
     }
