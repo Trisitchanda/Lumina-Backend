@@ -30,7 +30,7 @@ import {
   removePostFromCollection,
   movePostBetweenCollections
 } from "../controllers/content.controller.js";
-import { addComment, deleteComment, getPostComments } from "../controllers/comment.controller.js";
+import { addComment, deleteComment, editComment, getPostComments } from "../controllers/comment.controller.js";
 
 const contentRoutes = Router();
 
@@ -169,7 +169,10 @@ contentRoutes.get("/posts/:postId/comments", isLoggedIn, getPostComments);
 // Add a comment to a post
 contentRoutes.post("/posts/:postId/comments", isLoggedIn, addComment);
 
-// Delete a specific comment (using comment ID)
+// Delete comment
 contentRoutes.delete("/comments/:commentId", isLoggedIn, deleteComment);
+
+//edit comment
+contentRoutes.put("/comments/:commentId", isLoggedIn, editComment);
 
 export default contentRoutes;

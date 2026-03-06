@@ -115,7 +115,6 @@ export const deleteComment = async (req, res, next) => {
         await Comment.findByIdAndDelete(commentId);
 
         // 5. Update Post counter by the TOTAL amount deleted
-        // [FIX WAS HERE]: Changed -1 to -totalDeleted
         await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: -totalDeleted } });
 
         return res.status(200).json(
@@ -123,6 +122,49 @@ export const deleteComment = async (req, res, next) => {
                 commentId,
                 totalDeleted // sending this back is helpful for frontend Redux state
             })
+        );
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+/* ========================================================================== */
+/* EDIT COMMENT (With Ownership Check)                                        */
+/* ========================================================================== */
+export const editComment = async (req, res, next) => {
+    try {
+        const { commentId } = req.params;
+        const { content } = req.body;
+        const userId = req.user._id;
+
+        if (!content?.trim()) {
+            throw new ApiError(400, "Comment content cannot be empty");
+        }
+
+        // Find the comment
+        const comment = await Comment.findById(commentId);
+
+        if (!comment) {
+            throw new ApiError(404, "Comment not found");
+        }
+
+        // Authorization check
+        if (comment.userId.toString() !== userId.toString()) {
+            throw new ApiError(403, "You are not authorized to edit this comment");
+        }
+
+        // Update the comment
+        comment.content = content.trim();
+        // 'isEdited' boolean
+        // comment.isEdited = true; 
+        await comment.save();
+
+        // Populate user details so Redux replaces it with a fully hydrated object
+        await comment.populate("userId", "displayName username avatar isVerified");
+
+        return res.status(200).json(
+            new ApiResponse(200, "Comment updated successfully", comment)
         );
 
     } catch (error) {
