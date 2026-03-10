@@ -39,7 +39,7 @@ const contentRoutes = Router();
 /* ========================================================================== */
 
 // Get the main feed (with pagination)
-contentRoutes.get("/feed", isLoggedIn, getFeed);
+contentRoutes.get("/feed", getFeed);
 
 
 /* ========================================================================== */
