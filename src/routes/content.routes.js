@@ -52,7 +52,7 @@ contentRoutes.post(
   isLoggedIn, 
   upload.fields([
     { name: "image", maxCount: 1 }, 
-    { name: "audio", maxCount: 1 }, 
+    { name: "audio", maxCount: 1 },
   ]),
   createPost
 );
@@ -61,7 +61,10 @@ contentRoutes.post(
 contentRoutes.put(
   "/posts/:id", 
   isLoggedIn, 
-  upload.single("coverImage"), 
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "audio", maxCount: 1 }
+  ]),
   updatePost
 );
 
