@@ -959,14 +959,29 @@ export const sendNotification = async ({
         // THE GOLDEN RULE: Never notify a user about their own actions.
         if (!targetUserId || targetUserId.toString() === triggerUser.toString()) return;
 
-        await Notification.create({
+        // 1. Define the unique signature of this notification.
+        // This stops duplicates. "Did THIS user already do THIS action to THIS target?"
+        const query = {
             targetUserId,
             triggerUser,
-            type,              // 'like', 'follow', etc.
-            message,
-            targetEntityId,
-            targetEntityType,  // 'Post', 'User', etc.
-            unread: true
+            type,
+            targetEntityId
+        };
+
+        // 2. Define what gets updated if it exists, or inserted if it doesn't.
+        const update = {
+            $set: {
+                message,
+                targetEntityType,
+                unread: true // Pop it back to unread so it moves to the top of their feed
+            }
+        };
+
+        // 3. Execute the Upsert
+        await Notification.findOneAndUpdate(query, update, {
+            upsert: true,             // Create it if it doesn't exist
+            new: true,                // Return the updated document
+            setDefaultsOnInsert: true // Ensure Mongoose defaults (like createdAt) are applied
         });
 
     } catch (error) {
