@@ -7,7 +7,7 @@ import constants from "../constants.js";
 
 //  🔁 Refresh Access Token
 
-const refreshAccessToken = async (req, res, next) => {
+export const refreshAccessToken = async (req, res, next) => {
   try {
     const refreshToken = req.cookies?.refreshToken;
 
@@ -119,3 +119,50 @@ export const isAuthorized =
     }
     next();
   };
+
+  export const optionalAuth = async (req, res, next) => {
+  try {
+    console.log(req.cookies)
+    const accessToken = req.cookies?.accessToken;
+
+    // 1. If there is no token at all, they are a guest. Move on silently.
+    if (!accessToken) {
+      return next();
+    }
+
+    try {
+      // 2. Try to verify the access token
+      const decoded = jwt.verify(
+        accessToken,
+        constants.ACCESS_TOKEN_SECRET
+      );
+
+      const user = await User.findById(decoded._id);
+      
+      // 3. If valid and active, attach to request. Otherwise, leave undefined.
+      if (user && user.isActive) {
+        req.user = user;
+      }
+      
+      // Move to the controller
+      return next();
+
+    } catch {
+      // 4. Access token expired or invalid → try refresh
+      // THE TRICK: We wrap the 'next' callback to intercept any errors
+      await refreshAccessToken(req, res, (err) => {
+        if (err) {
+          // The refresh failed (e.g., refresh token is expired too).
+          // We DO NOT pass the error forward. We swallow it and proceed as a guest.
+          return next(); 
+        }
+        // The refresh succeeded! The refresh controller should have attached req.user.
+        return next();
+      });
+    }
+  } catch (error) {
+    // Ultimate fallback: If the database drops or something catastrophic happens, 
+    // just let them see the public feed.
+    next();
+  }
+};

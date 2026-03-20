@@ -3,7 +3,6 @@ import { isLoggedIn } from "../middlewares/auth.middleware.js";
 import upload from "../middlewares/multar.middleware.js";
 
 import {
-  getFeed,
   createPost,
   updatePost,
   deletePost,
@@ -33,14 +32,6 @@ import {
 import { addComment, deleteComment, editComment, getPostComments } from "../controllers/comment.controller.js";
 
 const contentRoutes = Router();
-
-/* ========================================================================== */
-/* FEED & DISCOVERY                                                           */
-/* ========================================================================== */
-
-// Get the main feed (with pagination)
-contentRoutes.get("/feed", getFeed);
-
 
 /* ========================================================================== */
 /* POSTS CRUD                                                                 */

@@ -9,6 +9,7 @@ import constants from "./constants.js";
 import cors from "cors";
 import profileRoutes from "./routes/profile.routes.js";
 import contentRoutes from "./routes/content.routes.js";
+import feedRoutes from "./routes/feed.routes.js";
 
 const app = express();
 
@@ -29,6 +30,8 @@ app.use("/api/test", healthCheckRoutes); // health check routes
 app.use("/api/user", userRoutes); // user check routes
 app.use("/api/profile", profileRoutes); // profile check routes
 app.use("/api/content", contentRoutes); // content check routes
+app.use("/api/feed", feedRoutes); // content check routes
+
 
 // handling all other incorrect routes
 app.all(/./, (req, res) => {

@@ -4,10 +4,11 @@ import { SavedPost } from "../models/savepost.model.js";
 import { v2 as cloudinary } from 'cloudinary';
 import { Collection } from "../models/collection.model.js";
 import { Tier } from "../models/tier.model.js";
+import { Notification } from "../models/notification.model.js";
 import { Subscription } from "../models/subscription.model.js";
-import { Purchase } from "../models/purchase.model.js"; // Critical for access control
+import { Purchase } from "../models/purchase.model.js";
 import User from "../models/user.models.js";
-import { ApiError, ApiResponse, uploadImageToCloud,deleteCloudFile } from "../utils/index.js";
+import { ApiError, ApiResponse, uploadImageToCloud, deleteCloudFile } from "../utils/index.js";
 
 /* ========================================================================== */
 /* HELPERS                                                                    */
@@ -22,15 +23,15 @@ const injectInteractionStatus = async (posts, userId) => {
 
     // Fetch Likes and Saves in parallel
     const [likes, saves] = await Promise.all([
-        Like.find({ 
-            userId: userId, 
-            targetId: { $in: postIds }, 
-            targetType: "Post" 
+        Like.find({
+            userId: userId,
+            targetId: { $in: postIds },
+            targetType: "Post"
         }).select("targetId").lean(),
-        
-        SavedPost.find({ 
-            user: userId, 
-            post: { $in: postIds } 
+
+        SavedPost.find({
+            user: userId,
+            post: { $in: postIds }
         }).select("post").lean()
     ]);
 
@@ -56,9 +57,9 @@ const injectAccessStatus = async (posts, userId) => {
     }
 
     const postIds = posts.map(p => p._id);
-    
+
     // Extract creator IDs safely (handling populated vs unpopulated)
-    const creatorIds = [...new Set(posts.map(p => 
+    const creatorIds = [...new Set(posts.map(p =>
         p.creatorId?._id ? p.creatorId._id.toString() : p.creatorId.toString()
     ))];
 
@@ -243,7 +244,7 @@ export const createPost = async (req, res, next) => {
             allowedTiers: parsedAllowedTiers,
         });
 
-        if(collectionId){
+        if (collectionId) {
             await Collection.findByIdAndUpdate(collectionId, { $push: { posts: post._id } });
         }
 
@@ -266,7 +267,7 @@ export const updatePost = async (req, res, next) => {
             isMembersOnly,
             allowedTiers,
             pollOptions,
-            collectionId 
+            collectionId
         } = req.body;
 
         // 1. Verify ownership and existence
@@ -341,8 +342,8 @@ export const updatePost = async (req, res, next) => {
                 const parsedPolls = JSON.parse(pollOptions);
                 updates.pollOptions = parsedPolls.map(opt => {
                     // Handles both simple strings and objects to preserve existing votes
-                    return typeof opt === 'string' 
-                        ? { text: opt, votes: 0 } 
+                    return typeof opt === 'string'
+                        ? { text: opt, votes: 0 }
                         : { text: opt.text, votes: opt.votes || 0 };
                 });
             } catch (e) {
@@ -360,8 +361,8 @@ export const updatePost = async (req, res, next) => {
 
         // 6. Apply the updates
         const updatedPost = await Post.findByIdAndUpdate(
-            id, 
-            { $set: updates }, 
+            id,
+            { $set: updates },
             { new: true }
         ).populate("creatorId", "displayName username avatar");
 
@@ -400,7 +401,7 @@ export const getMyPosts = async (req, res, next) => {
 export const getCreatorPosts = async (req, res, next) => {
     try {
         const { creatorId } = req.params;
-        const userId = req.user?._id; 
+        const userId = req.user?._id;
 
         // 1. Fetch minimal fields
         const rawPosts = await Post.find({
@@ -410,7 +411,7 @@ export const getCreatorPosts = async (req, res, next) => {
             .select("_id title coverImage likesCount commentsCount type isPaid isMembersOnly price createdAt creatorId allowedTiers content")
             .sort({ createdAt: -1 })
             .populate("creatorId", "displayName username avatar")
-            .lean(); 
+            .lean();
 
         // 2. Inject Interaction Status
         let processedPosts = await injectInteractionStatus(rawPosts, userId);
@@ -421,9 +422,9 @@ export const getCreatorPosts = async (req, res, next) => {
         // 4. Sanitize Content based on Access (With Cloudinary Signed Blurring)
         const securedPosts = processedPosts.map(post => {
             if (!post.hasAccess) {
-                
+
                 let secureBlurredImage = null;
-                
+
                 // If it has a cover image, generate a cryptographic, server-blurred URL
                 if (post.coverImage && post.coverImage.public_id) {
                     const blurredUrl = cloudinary.url(post.coverImage.public_id, {
@@ -432,7 +433,7 @@ export const getCreatorPosts = async (req, res, next) => {
                         quality: 10,
                         sign_url: true // Cryptographically signs the request
                     });
-                    
+
                     secureBlurredImage = {
                         public_id: post.coverImage.public_id,
                         secure_url: blurredUrl
@@ -480,9 +481,9 @@ export const getPostById = async (req, res, next) => {
         // ACCESS DENIED: Generate Secure Blurred URL
         // ==========================================
         if (!postWithAccess.hasAccess) {
-            
+
             let secureBlurredImage = null;
-            
+
             // If the post has a cover image, apply Cloudinary server-side blur
             if (postWithAccess.coverImage && postWithAccess.coverImage.public_id) {
                 const blurredUrl = cloudinary.url(postWithAccess.coverImage.public_id, {
@@ -491,7 +492,7 @@ export const getPostById = async (req, res, next) => {
                     quality: 10,
                     sign_url: true // <--- THIS IS THE MAGIC KEY. It adds the cryptographic signature so Cloudinary accepts it!
                 });
-                
+
                 secureBlurredImage = {
                     public_id: postWithAccess.coverImage.public_id,
                     secure_url: blurredUrl
@@ -512,9 +513,9 @@ export const getPostById = async (req, res, next) => {
                 isLiked: postWithAccess.isLiked,
                 isSaved: postWithAccess.isSaved,
                 allowedTiers: postWithAccess.allowedTiers,
-                
+
                 // --- THE SECURE PAYLOAD ---
-                coverImage: secureBlurredImage, 
+                coverImage: secureBlurredImage,
                 content: postWithAccess.content ? postWithAccess.content.substring(0, 50) + "..." : "",
                 media: [],
                 pollOptions: [],
@@ -599,15 +600,15 @@ export const getCollections = async (req, res, next) => {
 export const createCollection = async (req, res, next) => {
     try {
         const { title, description, isPaid, price } = req.body;
-        
+
         // 1. Parse postIds safely
         let postIds = [];
         if (req.body.postIds) {
             try {
                 // If it's a string (from FormData), parse it. 
                 // If it's already an array (from JSON body), use it as is.
-                postIds = typeof req.body.postIds === 'string' 
-                    ? JSON.parse(req.body.postIds) 
+                postIds = typeof req.body.postIds === 'string'
+                    ? JSON.parse(req.body.postIds)
                     : req.body.postIds;
             } catch (e) {
                 // Fallback: If parsing fails, maybe it's just a single ID string
@@ -629,9 +630,9 @@ export const createCollection = async (req, res, next) => {
 
         // 3. Verify ownership of posts
         if (postIds.length > 0) {
-            const count = await Post.countDocuments({ 
+            const count = await Post.countDocuments({
                 _id: { $in: postIds }, // Now this is a real Array, so $in works
-                creatorId: req.user._id 
+                creatorId: req.user._id
             });
             if (count !== postIds.length) {
                 throw new ApiError(403, "One or more posts do not belong to you");
@@ -658,13 +659,13 @@ export const createCollection = async (req, res, next) => {
 export const updateCollection = async (req, res, next) => {
     try {
         const { id } = req.params;
-        const { 
-            title, 
-            description, 
-            isPaid, 
-            price, 
-            postIds, 
-            removeCoverImage 
+        const {
+            title,
+            description,
+            isPaid,
+            price,
+            postIds,
+            removeCoverImage
         } = req.body;
 
         // 1. Verify existence and ownership
@@ -675,7 +676,7 @@ export const updateCollection = async (req, res, next) => {
         const updates = {};
         if (title !== undefined) updates.title = title.trim();
         if (description !== undefined) updates.description = description.trim();
-        
+
         // Safely parse FormData strings
         if (isPaid !== undefined) updates.isPaid = isPaid === "true" || isPaid === true;
         if (price !== undefined) updates.price = Number(price) || 0;
@@ -693,7 +694,7 @@ export const updateCollection = async (req, res, next) => {
         // Note: Adjust the req.file check based on how your multer is configured 
         // (e.g., upload.single('coverImage') vs upload.fields(...))
         const imageFile = req.file || (req.files && req.files.coverImage ? req.files.coverImage[0] : null);
-        
+
         if (imageFile) {
             const uploadedImg = await uploadImageToCloud(imageFile.path);
             if (uploadedImg) {
@@ -704,7 +705,7 @@ export const updateCollection = async (req, res, next) => {
             }
         } else if (removeCoverImage === "true") {
             // If the user clicked the 'X' to clear the image on the frontend
-            updates.coverImage = null; 
+            updates.coverImage = null;
         }
 
         // 4. Execute the update on the Collection document
@@ -789,7 +790,7 @@ export const getCollectionById = async (req, res, next) => {
 
         // Check Access (Is it my collection? Is it free? Did I buy it?)
         let hasAccess = false;
-        
+
         // A. I am the creator
         if (userId && collection.creatorId._id.toString() === userId.toString()) {
             hasAccess = true;
@@ -946,6 +947,33 @@ export const deleteTier = async (req, res, next) => {
 /* INTERACTIONS                                                               */
 /* ========================================================================== */
 
+export const sendNotification = async ({
+    targetUserId,
+    triggerUser,
+    type,
+    message,
+    targetEntityId = null,
+    targetEntityType = null
+}) => {
+    try {
+        // THE GOLDEN RULE: Never notify a user about their own actions.
+        if (!targetUserId || targetUserId.toString() === triggerUser.toString()) return;
+
+        await Notification.create({
+            targetUserId,
+            triggerUser,
+            type,              // 'like', 'follow', etc.
+            message,
+            targetEntityId,
+            targetEntityType,  // 'Post', 'User', etc.
+            unread: true
+        });
+
+    } catch (error) {
+        console.error("[Notification Engine Error]:", error);
+    }
+};
+
 export const toggleLike = async (req, res, next) => {
     try {
         const { id: postId } = req.params;
@@ -967,6 +995,14 @@ export const toggleLike = async (req, res, next) => {
             const p = await Post.findByIdAndUpdate(postId, { $inc: { likesCount: 1 } }, { new: true });
             isLiked = true;
             updatedLikesCount = p.likesCount;
+            sendNotification({
+                targetUserId: post.creatorId,
+                triggerUser: userId,
+                type: 'like',
+                message: 'liked your post.',
+                targetEntityId: post._id,
+                targetEntityType: 'Post'
+            });
         }
 
         return res.status(200).json(new ApiResponse(200, isLiked ? "Liked" : "Unliked", { isLiked, likesCount: updatedLikesCount }));
@@ -1019,6 +1055,16 @@ export const toggleFollow = async (req, res, next) => {
         } else {
             await User.findByIdAndUpdate(userId, { $addToSet: { following: creatorId } });
             await User.findByIdAndUpdate(creatorId, { $addToSet: { followers: userId } });
+
+            sendNotification({
+                targetUserId: creatorId,
+                triggerUser: userId,
+                type: 'follow',
+                message: 'started following you.',
+                targetEntityId: userId,
+                targetEntityType: 'User'
+            });
+
             return res.status(200).json(new ApiResponse(200, "Followed", { isFollowed: true }));
         }
     } catch (error) {
@@ -1053,6 +1099,15 @@ export const subscribeToCreator = async (req, res, next) => {
             paymentSubscriptionId: `sub_${Date.now()}`
         });
 
+        sendNotification({
+            targetUserId: creatorId,
+            triggerUser: req.user._id,
+            type: 'subscribe',
+            message: 'just subscribed to your tier!',
+            targetEntityId: req.user._id,
+            targetEntityType: 'User'
+        });
+
         return res.status(201).json(new ApiResponse(201, "Subscribed", subscription));
     } catch (error) {
         next(error);
@@ -1083,7 +1138,7 @@ export const purchaseItem = async (req, res, next) => {
         let item;
         if (type === 'Post') item = await Post.findById(id);
         else if (type === 'Collection') item = await Collection.findById(id);
-        
+
         if (!item) throw new ApiError(404, "Item not found");
 
         // [FIX]: Create a Record in Purchase Collection (Source of Truth)
@@ -1094,6 +1149,15 @@ export const purchaseItem = async (req, res, next) => {
             price: item.price,
             status: 'completed',
             paymentId: `pay_${Date.now()}` // Mock payment
+        });
+
+        sendNotification({
+            targetUserId: item.creatorId,
+            triggerUser: userId,
+            type: 'purchase',
+            message: `purchased your ${type.toLowerCase()}.`,
+            targetEntityId: id,
+            targetEntityType: type 
         });
 
         return res.status(200).json(new ApiResponse(200, "Purchase successful"));
