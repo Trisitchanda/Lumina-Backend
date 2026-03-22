@@ -959,8 +959,33 @@ export const sendNotification = async ({
         // THE GOLDEN RULE: Never notify a user about their own actions.
         if (!targetUserId || targetUserId.toString() === triggerUser.toString()) return;
 
+        // --- NEW: THE PREFERENCE GATEKEEPER ---
+        // We do a lightweight, lean query to fetch ONLY the notifications object.
+        const targetUser = await User.findById(targetUserId).select("notifications").lean();
+        console.log(targetUser)
+
+        if (targetUser?.notifications) {
+            // Map the incoming action 'type' to your EXACT database keys
+            const typeToSettingMap = {
+                'follow': 'pushNewFollower',
+                'subscribe': 'pushNewSubscriber',
+                'comment': 'pushNewComment',
+                'purchase': 'pushNewPurchase'
+                // Notice 'like' is missing here. (See note below!)
+            };
+
+            const settingKey = typeToSettingMap[type];
+
+            // Only check if we have a mapped key for this type.
+            // If the user explicitly set this preference to false, drop the notification.
+            if (settingKey && targetUser.notifications[settingKey] === false) {
+                console.log(`[Notification Engine]: Dropped '${type}' notification for user ${targetUserId} (Opted out)`);
+                return; 
+            }
+        }
+        // --------------------------------------
+
         // 1. Define the unique signature of this notification.
-        // This stops duplicates. "Did THIS user already do THIS action to THIS target?"
         const query = {
             targetUserId,
             triggerUser,
@@ -973,15 +998,15 @@ export const sendNotification = async ({
             $set: {
                 message,
                 targetEntityType,
-                unread: true // Pop it back to unread so it moves to the top of their feed
+                unread: true 
             }
         };
 
         // 3. Execute the Upsert
         await Notification.findOneAndUpdate(query, update, {
-            upsert: true,             // Create it if it doesn't exist
-            new: true,                // Return the updated document
-            setDefaultsOnInsert: true // Ensure Mongoose defaults (like createdAt) are applied
+            upsert: true,             
+            new: true,                
+            setDefaultsOnInsert: true 
         });
 
     } catch (error) {

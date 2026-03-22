@@ -312,6 +312,41 @@ export const updateSecurity = async (req, res, next) => {
   }
 };
 
+/* =========================
+   UPDATE PASSWORD
+========================= */
+export const updatePassword = async (req, res, next) => {
+  try {
+    const { current, next: newPassword } = req.body;
+
+    if (!current || !newPassword) {
+      throw new ApiError(400, "Current and new passwords are required");
+    }
+
+    // 1. Fetch user. We explicitly select +password because it should be hidden by default.
+    const user = await User.findById(req.user._id).select("+password");
+    if (!user) {
+      throw new ApiError(404, "User not found");
+    }
+
+    // 2. Verify current password matches what is in the database
+    // Using the 'comparePassword' method defined in your User schema
+    const isPasswordValid = await user.comparePassword(current);
+    if (!isPasswordValid) {
+      throw new ApiError(400, "Invalid current password");
+    }
+
+    // 3. Set new password and save (triggers your pre-save bcrypt hook)
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).json(
+      new ApiResponse(200, "Password updated successfully")
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 
 /* =========================
    REQUEST PAYOUT

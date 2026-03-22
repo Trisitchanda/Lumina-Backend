@@ -2,6 +2,7 @@ import { Comment } from "../models/comment.model.js";
 import { Post } from "../models/post.model.js";
 import { ApiError, ApiResponse } from "../utils/index.js";
 import mongoose from "mongoose";
+import { sendNotification } from "./content.controller.js";
 
 /* ========================================================================== */
 /* GET COMMENTS (Paginated & Optimized)                                       */
@@ -52,8 +53,8 @@ export const addComment = async (req, res, next) => {
         }
 
         // 1. Verify Post Exists
-        const postExists = await Post.exists({ _id: postId });
-        if (!postExists) {
+        const post = await Post.findById(postId);
+        if (!post) {
             throw new ApiError(404, "Post not found");
         }
 
@@ -69,6 +70,15 @@ export const addComment = async (req, res, next) => {
         // We do not wait for this to finish to send the response (Optimistic approach),
         // or we await it if data integrity is strictly required before UI update.
         await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+
+        sendNotification({
+            targetUserId: post.creatorId,
+            triggerUser: userId,
+            type: 'comment',
+            message: 'commented on your post.',
+            targetEntityId: post._id,
+            targetEntityType: 'Post'
+        });
 
         // 4. Populate user details immediately so the UI can render the avatar/name
         // without needing a page refresh.
