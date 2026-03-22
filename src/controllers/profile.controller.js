@@ -77,13 +77,14 @@ export const getExploreCreators = async (req, res, next) => {
     let sortOptions = { createdAt: -1 }; // Default: Newest
     if (sort === "name") {
       sortOptions = { displayName: 1 }; // A-Z
+    } else if (sort === "new") {
+      sortOptions = { createdAt: -1 };
     }
-    // Note: Sorting by "popular" (followers count) requires Aggregation pipeline. 
-    // For now, we fetch the data and let Frontend sort, or use default sorting.
 
     // Execute Query
     const creators = await User.find(query)
       .select("displayName username avatar bio coverImage category followers")
+      .collation({ locale: "en", strength: 2 })
       .sort(sortOptions)
       .skip(skip)
       .limit(limit);
