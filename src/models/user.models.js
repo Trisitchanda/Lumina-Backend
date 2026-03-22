@@ -154,12 +154,12 @@ const userSchema = new mongoose.Schema(
       emailNewPurchase: { type: Boolean, default: false },
       emailWeeklyDigest: { type: Boolean, default: false },
 
-      pushNewFollower: { type: Boolean, default: false },
-      pushNewSubscriber: { type: Boolean, default: false },
-      pushNewComment: { type: Boolean, default: false },
-      pushNewPurchase: { type: Boolean, default: false },
+      pushNewFollower: { type: Boolean, default: true },
+      pushNewSubscriber: { type: Boolean, default: true },
+      pushNewComment: { type: Boolean, default: true },
+      pushNewPurchase: { type: Boolean, default: true },
 
-      marketingEmails: { type: Boolean, default: false },
+      marketingEmails: { type: Boolean, default: true },
     },
 
     /* ===================== PAYOUT ===================== */

@@ -13,7 +13,6 @@ import { uploadImageToCloud, deleteCloudFile } from "../utils/index.js";
 ========================= */
 export const handleRegister = async (req, res, next) => {
   try {
-    console.log(req.body)
     const { username, email, password, role } = req.body;
     const avatarFile = req.file;
 

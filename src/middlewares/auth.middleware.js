@@ -122,16 +122,15 @@ export const isAuthorized =
 
   export const optionalAuth = async (req, res, next) => {
   try {
-    console.log(req.cookies)
     const accessToken = req.cookies?.accessToken;
 
-    // 1. If there is no token at all, they are a guest. Move on silently.
+    // If there is no token at all, they are a guest. Move on silently.
     if (!accessToken) {
       return next();
     }
 
     try {
-      // 2. Try to verify the access token
+      // Try to verify the access token
       const decoded = jwt.verify(
         accessToken,
         constants.ACCESS_TOKEN_SECRET
@@ -139,7 +138,7 @@ export const isAuthorized =
 
       const user = await User.findById(decoded._id);
       
-      // 3. If valid and active, attach to request. Otherwise, leave undefined.
+      // If valid and active, attach to request. Otherwise, leave undefined.
       if (user && user.isActive) {
         req.user = user;
       }
@@ -149,7 +148,7 @@ export const isAuthorized =
 
     } catch {
       // 4. Access token expired or invalid → try refresh
-      // THE TRICK: We wrap the 'next' callback to intercept any errors
+      // wrap the 'next' callback to intercept any errors
       await refreshAccessToken(req, res, (err) => {
         if (err) {
           // The refresh failed (e.g., refresh token is expired too).

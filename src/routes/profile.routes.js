@@ -11,7 +11,8 @@ import {
   requestPayout,
   updateAvatar,
   getExploreCreators,
-  getPublicProfile
+  getPublicProfile,
+  updatePassword
 } from "../controllers/profile.controller.js";
 
 const profileRoutes = Router();
@@ -37,6 +38,9 @@ profileRoutes.post("/payout/request", isLoggedIn, requestPayout);
 
 // updateSecurity
 profileRoutes.put("/security", isLoggedIn, updateSecurity);
+
+// updatePassword
+profileRoutes.put("/update-password", isLoggedIn, updatePassword);
 
 // updateAvatar
 profileRoutes.put(
